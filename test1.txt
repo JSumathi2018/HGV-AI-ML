@@ -1,0 +1,82 @@
+'''
+#1 Generation phase:
+Program should generate N=~5000 JSON files on disk in /tmp/flights/%MM-YY%-%origin_city%-flights.json 
+or similar folder structure where each file is a JSON array of random size M = [50 – 100] of randomly 
+generated flights data between cities. Total set of cities is K=[100-200]. Flight record is an object 
+containing  {date, origin_city, destination_city, flight_duration_secs, # of passengers of board}. 
+Some records, with probability L=[0.5%-0.1%] should have NULL in any of the flight record properties.
+
+'''
+import os
+import json
+import random
+from datetime import datetime, timedelta
+
+N = 2
+array_size = (50, 100)
+cities_size = random.randint(100,200)
+prob_range = (0.001, 0.005)
+cities = [f"City_{i+1}" for i in range(cities_size)]
+directory = "/tmp/flights"
+
+def create_folder(month, year, origin_city):
+    folder = f"{month:02d}-{year % 100:02d}-{origin_city}"
+    path = os.path.join(directory, folder)
+    os.makedirs(path, exist_ok=True)
+    return folder
+    
+def generate_flight_function():
+    date = "2024-01-01"
+    origin_city = random.choice(cities)
+    destination_city = random.choice(cities)
+    while destination_city == origin_city:
+        destination_city = random.choice(cities)
+    flight_duration_secs = random.randint(600,3600)
+    passengers_off_board = random.randint(50,300)
+   
+    if random.random() < 0.005:
+        date = None
+    if random.random() < 0.005:
+        origin_city = None
+    if random.random() < 0.005:
+        destination_city = None
+    if random.random() < 0.005:
+        flight_duration_secs = None
+    if random.random() < 0.005:
+        passengers_off_board = None
+
+    flight_record = {
+        "date": date,
+        "origin_city": origin_city,
+        "destination_city": destination_city,
+        "flight_duration_secs": flight_duration_secs,
+        "passengers_off_board": passengers_off_board
+    }
+    
+    return flight_record
+
+def generate_function():
+    current_date = datetime.now()
+    for i in range(N):
+        random_month = random.randint(1, 12)
+        random_year = current_date.year - random.randint(0, 4)
+        origin_city = random.choice(cities)
+        folder_path = create_folder(random_month, random_year, origin_city)
+        
+        num_of_flights = random.randint(array_size[0], array_size[1])
+       
+        file_name = f"{origin_city}-flights-{random_month:02d}-{random_year % 100:02d}.json"
+        file_path = os.path.join(folder_path, file_name)
+       
+        flights = [generate_flight_function() for x in range(num_of_flights)]
+        with open(file_name, "w") as f:
+            json.dump(flights, f)
+            
+        if i % 100 == 0:
+            print(f"Generated {i}/{N} flight files...")
+            
+if __name__ == "__main__":
+    generate_function()
+            
+        
+    

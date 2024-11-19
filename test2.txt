@@ -1,0 +1,86 @@
+'''
+#2 Analysis & Cleaning phase:
+Program should process those files in the most optimal way and produce the following result:
+ - #count of total records processed, #count of dirty records and total run duration.
+ - AVG and P95 (95th percentile) of flight duration for Top 25 destination cities.
+ - Assuming cities had originally 0 passengers, find two cities with MAX passengers arrived and left. 
+'''
+
+import os
+import json
+import numpy as np
+from collections import defaultdict
+from datetime import datetime
+import time
+
+FOLDER_PATH = './'
+
+def calculate_percentile(data, percentile):
+    return np.percentile(data, percentile)
+
+def flight_data_process():
+    total_records = 0
+    dirty_records = 0
+    flight_durations = defaultdict(list)
+    passengers = defaultdict(lambda: {'arrived': 0, 'departed': 0})
+    
+    start_time = time.time()
+    
+    for filename in os.listdir(FOLDER_PATH):
+        if filename.endswith('.json'):
+            file_path = os.path.join(FOLDER_PATH, filename)
+            if os.path.getsize(file_path) == 0:
+                continue
+            with open(filename, 'r') as f:
+                records = json.load(f)
+                
+                for record in records:
+                    total_records += 1
+                    if any(value is None for value in record.values()):
+                        dirty_records += 1
+                    else:
+                        if record['destination_city']:
+                            flight_durations[record['destination_city']].append(record['flight_duration_secs'])
+                        
+                        if record['origin_city'] and record['passengers_off_board']:
+                            passengers[record['origin_city']]['departed'] += record['passengers_off_board']
+                        if record['destination_city'] and record['passengers_off_board']:
+                            passengers[record['destination_city']]['arrived'] += record['passengers_off_board']
+
+    top_25_destinations = sorted(flight_durations.items(), key=lambda x: len(x[1]), reverse=True)[:25]
+    flight_duration_stats = {}
+    
+    for city, durations in top_25_destinations:
+        avg_duration = np.mean(durations) if durations else 0
+        p95_duration = calculate_percentile(durations, 95) if durations else 0
+        flight_duration_stats[city] = {'AVG': avg_duration, 'P95': p95_duration}
+    
+    max_arrivals_city = max(passengers, key=lambda city: passengers[city]['arrived'])
+    max_departures_city = max(passengers, key=lambda city: passengers[city]['departed'])
+    
+    end_time = time.time()
+    total_duration = end_time - start_time
+
+    return {
+        "total_records": total_records,
+        "dirty_records": dirty_records,
+        "duration": total_duration,
+        "flight_duration_stats": flight_duration_stats,
+        "max_arrivals_city": max_arrivals_city,
+        "max_departures_city": max_departures_city
+    }
+
+
+if __name__ == "__main__":
+    results = flight_data_process()
+    
+    print("Total records processed:", results['total_records'])
+    print("Total dirty records:", results['dirty_records'])
+    print("Total run duration:", results['duration'])
+    
+    print("\nFlight Duration Stats (AVG and P95 for Top 25 Destinations):")
+    for city, stats in results["flight_duration_stats"].items():
+        print(f"{city}: AVG = {stats['AVG']:.2f} secs, P95 = {stats['P95']:.2f} secs")
+    
+    print("\nCity with MAX passengers arrived:", results['max_arrivals_city'])
+    print("City with MAX passengers departed:", results['max_departures_city'])
